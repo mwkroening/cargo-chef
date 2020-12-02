@@ -168,7 +168,17 @@ impl Skeleton {
                 if let Some(parent_directory) = binary_path.parent() {
                     fs::create_dir_all(parent_directory)?;
                 }
-                fs::write(binary_path, "fn main() {}")?;
+                fs::write(
+                    binary_path,
+                    "#![no_std]
+#![no_main]
+
+#[panic_handler]
+fn panic(_: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+",
+                )?;
             }
 
             // Create dummy entrypoint files for for all libraries
@@ -179,7 +189,15 @@ impl Skeleton {
                 if let Some(parent_directory) = lib_path.parent() {
                     fs::create_dir_all(parent_directory)?;
                 }
-                fs::write(lib_path, "")?;
+                if lib.proc_macro {
+                    fs::write(lib_path, "")?;
+                } else {
+                    fs::write(
+                        lib_path,
+                        "#![no_std]
+",
+                    )?;
+                }
             }
 
             // Create dummy entrypoint files for for all benchmarks
@@ -210,7 +228,24 @@ impl Skeleton {
                     fs::create_dir_all(parent_directory)?;
                 }
                 if test.harness {
-                    fs::write(test_path, "")?;
+                    fs::write(
+                        test_path,
+                        r#"#![no_std]
+#![no_main]
+#![feature(custom_test_frameworks)]
+#![test_runner(test_runner)]
+
+#[no_mangle]
+pub extern "C" fn _init() {}
+
+fn test_runner(_: &[&dyn Fn()]) {}
+
+#[panic_handler]
+fn panic(_: &core::panic::PanicInfo) -> ! {
+    loop {}
+}                
+"#,
+                    )?;
                 } else {
                     fs::write(test_path, "fn main() {}")?;
                 }
